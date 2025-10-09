@@ -123,7 +123,5 @@
   </main>
 </div>
 
-<style>
- 
-</style>
+
 
