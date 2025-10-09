@@ -16,59 +16,62 @@ const itemsPerPage = 50;
   let mockInterval;
   let isConnected = false;
 
-  const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws/frontend";
+  const WS_URL = import.meta.env.VITE_WS_URL;
 
   // ✅ WebSocket Connection
   function connectWebSocket() {
-    try {
-      socket = new WebSocket(WS_URL);
+  console.log("🔄 Trying to connect to WebSocket:", WS_URL);
 
-      socket.onopen = () => {
-        isConnected = true;
-        clearTimeout(reconnectTimer);
-      };
+  try {
+    socket = new WebSocket(WS_URL);
 
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.veh_id && data.veh_status) {
-            vehicles.update(v => ({ ...v, [data.veh_id]: data.veh_status }));
-          }
-        } catch (e) {
-          console.error("Invalid JSON:", event.data);
-        }
-      };
+    socket.onopen = () => {
+      isConnected = true;
+      console.log("✅ WebSocket connected successfully!");
+      clearTimeout(reconnectTimer);
+    };
 
-      socket.onerror = () => (isConnected = false);
-      socket.onclose = () => {
-        isConnected = false;
-        reconnectTimer = setTimeout(connectWebSocket, 5000);
-      };
-    } catch {
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📩 Received data:", data);
+
+        if (data.deviceid) {
+  // Take only last 6 digits to make it short & unique
+  const shortId = data.deviceid.slice(-4);
+
+  // Convert online boolean → "active"/"inactive"
+  const status = data.online ? "active" : "inactive";
+
+  vehicles.update(v => ({ ...v, [shortId]: status }));
+}
+
+      } catch (e) {
+        console.error("⚠️ Invalid JSON message:", event.data);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error("❌ WebSocket error occurred:", error);
+      isConnected = false;
+    };
+
+    socket.onclose = (event) => {
+      console.warn("⚠️ WebSocket closed:", event.reason || "(no reason)");
+      isConnected = false;
       reconnectTimer = setTimeout(connectWebSocket, 5000);
-    }
+    };
+  } catch (err) {
+    console.error("💥 Exception during WebSocket connect:", err);
+    reconnectTimer = setTimeout(connectWebSocket, 5000);
   }
+}
 
-  // 🧪 Mock Data (for UI testing)
-  function startMockData() {
-    const mockInterval = setInterval(() => {
-      const id = "VEH-" + Math.ceil(Math.random() * 1000);
-      const status = Math.random() > 0.5 ? "active" : "inactive";
-      vehicles.update(v => ({ ...v, [id]: status }));
-    }, 500);
-    return mockInterval;
-  }
+onMount(() => {
+  connectWebSocket();
+});
 
-  onMount(() => {
-    connectWebSocket();
-    mockInterval = startMockData(); // remove for production
-  });
-
-  onDestroy(() => {
-    if (socket) socket.close();
-    clearTimeout(reconnectTimer);
-    clearInterval(mockInterval);
-  });
+  
 
   // 🧠 Derived stats for counts
   const stats = derived(vehicles, $v => {
@@ -124,7 +127,7 @@ $: {
   <!-- Header -->
   <div class="flex justify-between items-center">
     <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">
-      🚘 Telematics System Dashboard
+      Camera Terminal Debug
     </h1>
 
     <div class="flex items-center gap-2 text-xs">
