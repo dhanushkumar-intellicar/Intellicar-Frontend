@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { writable, derived } from 'svelte/store';
+   import { goto } from '$app/navigation';
 
   // 🔹 Vehicle data (veh_id → status)
   const vehicles = writable({});
@@ -66,10 +67,17 @@ const itemsPerPage = 50;
     reconnectTimer = setTimeout(connectWebSocket, 5000);
   }
 }
-
 onMount(() => {
-  connectWebSocket();
-});
+    // 🧪 DUMMY MODE (for now)
+    vehicles.set({
+      VEH001: "active",
+      VEH002: "inactive"
+    });
+    isConnected = false;
+
+    // 🔛 Uncomment this line later to use live WebSocket:
+    // connectWebSocket();
+  });
 
   
 
@@ -202,33 +210,35 @@ $: {
       </p>
     {:else if $filteredVehicles.length > 0}
       <div
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[70vh] overflow-y-auto"
+  class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[70vh] overflow-y-auto"
+>
+  {#each $filteredVehicles as [id, status]}
+    <button
+      type="button"
+      on:click={() => goto(`/vehicle/${id}`)}
+      class="flex items-center justify-between p-3 rounded-lg border text-left w-full transition hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-blue-500"
+      class:bg-green-50={status === 'active'}
+      class:bg-red-50={status === 'inactive'}
+      class:border-green-200={status === 'active'}
+      class:border-red-200={status === 'inactive'}
+    >
+      <span class="font-medium text-gray-700 truncate">{id}</span>
+      <span
+        class="flex items-center gap-1 text-sm"
+        class:text-green-600={status === 'active'}
+        class:text-red-600={status === 'inactive'}
       >
-        {#each $filteredVehicles as [id, status]}
-          <div
-            role="listitem"
-            class="flex items-center justify-between p-3 rounded-lg border transition hover:scale-[1.01]"
-            class:bg-green-50={status === 'active'}
-            class:bg-red-50={status === 'inactive'}
-            class:border-green-200={status === 'active'}
-            class:border-red-200={status === 'inactive'}
-          >
-            <span class="font-medium text-gray-700 truncate">{id}</span>
-            <span
-              class="flex items-center gap-1 text-sm"
-              class:text-green-600={status === 'active'}
-              class:text-red-600={status === 'inactive'}
-            >
-              <span
-                class="w-2.5 h-2.5 rounded-full"
-                class:bg-green-500={status === 'active'}
-                class:bg-red-500={status === 'inactive'}
-              ></span>
-              {status}
-            </span>
-          </div>
-        {/each}
-      </div>
+        <span
+          class="w-2.5 h-2.5 rounded-full"
+          class:bg-green-500={status === 'active'}
+          class:bg-red-500={status === 'inactive'}
+        ></span>
+        {status}
+      </span>
+    </button>
+  {/each}
+</div>
+
       <!-- Modern Pagination -->
 {#if totalPages > 1}
   <div class="flex justify-center items-center gap-4 mt-6">
