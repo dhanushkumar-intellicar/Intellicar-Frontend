@@ -1,9 +1,10 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment'; // ✅ import this to guard browser APIs
 
   export let width = '500px';
   export let height = '280px';
-  export let isLive = false; // true → live/WebRTC mode
+  export let isLive = false;
 
   let activeChannel = null;
   let isFullscreen = false;
@@ -30,9 +31,10 @@
   }
 
   function toggleFullscreen() {
+    if (!browser) return; // ✅ prevent SSR crash
     const container = document.getElementById('video-preview-container');
     if (!document.fullscreenElement) {
-      container.requestFullscreen();
+      container?.requestFullscreen();
       isFullscreen = true;
     } else {
       document.exitFullscreen();
@@ -54,6 +56,7 @@
   }
 
   function handleKeydown(e) {
+    if (!browser) return; // ✅
     if (!activeChannel || isLive) return;
     if (e.code === 'ArrowLeft') skip(-5);
     else if (e.code === 'ArrowRight') skip(5);
@@ -64,10 +67,12 @@
   }
 
   onMount(() => {
+    if (!browser) return; // ✅ guard again
     window.addEventListener('keydown', handleKeydown);
   });
 
   onDestroy(() => {
+    if (!browser) return;
     window.removeEventListener('keydown', handleKeydown);
   });
 </script>
@@ -110,10 +115,7 @@
     </div>
   {:else}
     <!-- 🎥 Expanded Channel -->
-    <div
-  class="relative w-full h-full"
->
-
+    <div class="relative w-full h-full">
       <video
         bind:this={videoRef}
         src={channels.find(ch => ch.id === activeChannel)?.src}
@@ -125,42 +127,35 @@
       ></video>
 
       <!-- ✕ Close -->
-<button
-  type="button"
-  aria-label="Close video area"
-  class="absolute top-0 right-0 w-16 h-16 z-40 bg-transparent cursor-pointer focus:outline-none"
-  on:mouseenter={() => (hoverTopRight = true)}
-  on:mouseleave={() => (hoverTopRight = false)}
-  on:click={exitExpanded}
->
-  {#if hoverTopRight}
-    <span
-      class="absolute top-2 right-2 bg-black/70 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/90 transition z-50"
-    >
-      ✕
-    </span>
-  {/if}
-</button>
+      <button
+        type="button"
+        aria-label="Close video area"
+        class="absolute top-0 right-0 w-16 h-16 z-40 bg-transparent cursor-pointer focus:outline-none"
+        on:mouseenter={() => (hoverTopRight = true)}
+        on:mouseleave={() => (hoverTopRight = false)}
+        on:click={exitExpanded}
+      >
+        {#if hoverTopRight}
+          <span
+            class="absolute top-2 right-2 bg-black/70 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/90 transition z-50"
+          >
+            ✕
+          </span>
+        {/if}
+      </button>
 
-
-      <!-- 🎛️ YouTube-style controls at top-center -->
+      <!-- 🎛️ YouTube-style controls -->
       {#if !isLive && hover}
         <div
           class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-black/40 rounded-full px-4 py-1 flex items-center gap-5 text-white text-lg backdrop-blur-sm transition"
         >
-          <button on:click={() => skip(-5)} title="Back 5s" class="hover:scale-125 transition">
-            ⏪
-          </button>
-          <button on:click={togglePlay} title="Play/Pause" class="hover:scale-150 text-2xl transition">
-            ⏯
-          </button>
-          <button on:click={() => skip(5)} title="Forward 5s" class="hover:scale-125 transition">
-            ⏩
-          </button>
+          <button on:click={() => skip(-5)} title="Back 5s" class="hover:scale-125 transition">⏪</button>
+          <button on:click={togglePlay} title="Play/Pause" class="hover:scale-150 text-2xl transition">⏯</button>
+          <button on:click={() => skip(5)} title="Forward 5s" class="hover:scale-125 transition">⏩</button>
         </div>
       {/if}
 
-      <!-- Bottom-right: speed + fullscreen -->
+      <!-- ⚙️ Bottom-right controls -->
       {#if hover}
         <div class="absolute bottom-3 right-3 flex items-center gap-2 text-xs">
           {#if !isLive}
@@ -191,7 +186,6 @@
   #video-preview-container {
     transition: all 0.3s ease-in-out;
   }
-
   :global(video) {
     width: 100%;
     height: 100%;
