@@ -11,6 +11,8 @@
   let hover = false;
   let hoverTopRight = false;
   let videoRef;
+  let playedChannels = {};
+  let gridVideoRefs = {};
 
   const sampleUrl =
     'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
@@ -23,11 +25,30 @@
   ];
 
   function toggleChannel(id) {
+    // If this channel was already played, ensure it stays playing in expanded view
+    const wasPlayed = playedChannels[id];
     activeChannel = activeChannel === id ? null : id;
+    
+    if (activeChannel && wasPlayed) {
+      // If expanding a played video, ensure it plays in expanded view
+      setTimeout(() => {
+        if (videoRef) videoRef.play();
+      }, 0);
+    }
   }
 
   function exitExpanded() {
+    const currentChannel = activeChannel;
     activeChannel = null;
+    // Resume playback of all played videos in grid view
+    setTimeout(() => {
+      Object.keys(playedChannels).forEach(channelId => {
+        const gridVideo = gridVideoRefs[channelId];
+        if (gridVideo && playedChannels[channelId]) {
+          gridVideo.play();
+        }
+      });
+    }, 0);
   }
 
   function toggleFullscreen() {
@@ -45,6 +66,20 @@
   function togglePlay() {
     if (videoRef?.paused) videoRef.play();
     else videoRef?.pause();
+  }
+
+  function playVideo(chId, event) {
+    if (event) event.stopPropagation();
+    playedChannels[chId] = true;
+    playedChannels = { ...playedChannels }; // Trigger reactivity
+    
+    const gridVideo = gridVideoRefs[chId];
+    if (gridVideo) gridVideo.play();
+    
+    // If this is the active channel, play in expanded view too
+    if (activeChannel === chId && videoRef) {
+      videoRef.play();
+    }
   }
 
   function skip(seconds) {
@@ -69,6 +104,16 @@
   onMount(() => {
     if (!browser) return; // ✅ guard again
     window.addEventListener('keydown', handleKeydown);
+    
+    // Start playing all videos that were previously played
+    setTimeout(() => {
+      Object.keys(playedChannels).forEach(channelId => {
+        const gridVideo = gridVideoRefs[channelId];
+        if (gridVideo && playedChannels[channelId]) {
+          gridVideo.play();
+        }
+      });
+    }, 0);
   });
 
   onDestroy(() => {
@@ -92,25 +137,44 @@
 >
   {#if !activeChannel}
     <!-- 🧩 4-channel grid -->
-    <div class="grid grid-cols-2 grid-rows-2 gap-[2px] w-full h-full">
+    <div class="grid grid-cols-2 grid-rows-2 gap-[2px] bg-white p-[2px] w-full h-full rounded-lg">
       {#each channels as ch}
-        <button
-          type="button"
+        <div
+          role="button"
+          tabindex="0"
           class="relative bg-black cursor-pointer focus:outline-none overflow-hidden"
           on:click={() => toggleChannel(ch.id)}
+          on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChannel(ch.id); }}
         >
-          <video
+          <video  
+            bind:this={gridVideoRefs[ch.id]}
             src={ch.src}
-            autoplay
             muted
             loop
             playsinline
+            on:loadeddata={() => {
+              if (playedChannels[ch.id]) {
+                gridVideoRefs[ch.id].play();
+              }
+            }}
             class="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
           ></video>
-          <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
+          {#if !playedChannels[ch.id]}
+            <div class="absolute inset-0 bg-gray-700/70 flex items-center justify-center">
+              <button
+                type="button"
+                class="bg-white/80 rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-white/90 transition text-3xl text-gray-800"
+                on:click|stopPropagation={(e) => playVideo(ch.id, e)}
+                aria-label="Play video"
+              >
+                ▶
+              </button>
+            </div>
+          {/if}
+          <!-- <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
             {ch.label}
-          </div>
-        </button>
+          </div> -->
+        </div>
       {/each}
     </div>
   {:else}
@@ -119,12 +183,29 @@
       <video
         bind:this={videoRef}
         src={channels.find(ch => ch.id === activeChannel)?.src}
-        autoplay
+        on:play={() => {
+          if (activeChannel) {
+            playedChannels[activeChannel] = true;
+            playedChannels = { ...playedChannels };
+          }
+        }}
         muted={isLive}
         loop={isLive}
         playsinline
         class="w-full h-full object-cover"
       ></video>
+      {#if !playedChannels[activeChannel]}
+        <div class="absolute inset-0 bg-gray-700/70 flex items-center justify-center">
+          <button
+            type="button"
+            class="bg-white/80 rounded-full w-20 h-20 flex items-center justify-center shadow-lg hover:bg-white/90 transition text-4xl text-gray-800"
+            on:click={() => playVideo(activeChannel)}
+            aria-label="Play video"
+          >
+            ▶
+          </button>
+        </div>
+      {/if}
 
       <!-- ✕ Close -->
       <button
