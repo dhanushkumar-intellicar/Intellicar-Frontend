@@ -8,7 +8,7 @@
   export let width = '600px';
   export let height = '400px';
   export let deviceId = '';
-  export let WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:11007';
+  export let WS_URL = import.meta.env.VITE_WS_URL;
 
   // Custom icons in static folder
   const greenCarIcon = '/green-car.png';
@@ -26,6 +26,46 @@
   let isFullscreen = false;
   let socket;
 
+  // Add smooth marker animation
+  function initMarkerAnimation() {
+    L.Marker.prototype.slideTo = function(latlng, options) {
+      const start = this.getLatLng();
+      const end = L.latLng(latlng);
+      const duration = options?.duration || 1000;
+      const keepAtCenter = options?.keepAtCenter || false;
+
+      // Animate marker movement
+      const startTime = performance.now();
+      const animate = (currentTime) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Use easeInOutQuad easing function for smooth movement
+        const easeProgress = progress < 0.5
+          ? 2 * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+        const lat = start.lat + (end.lat - start.lat) * easeProgress;
+        const lng = start.lng + (end.lng - start.lng) * easeProgress;
+        
+        this.setLatLng([lat, lng]);
+
+        if (keepAtCenter && map) {
+          map.panTo([lat, lng], { 
+            animate: false
+          });
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      requestAnimationFrame(animate);
+      return this;
+    };
+  }
+
   async function initializeMap() {
     if (!browser) return;
 
@@ -33,6 +73,9 @@
     await import('leaflet/dist/leaflet.css');
     await import('leaflet-rotatedmarker/leaflet.rotatedMarker.js');
     L = leafletModule.default;
+    
+    // Initialize marker animation
+    initMarkerAnimation();
 
     // Initialize map
     map = L.map(container, { zoomControl: false }).setView([latitude, longitude], 15);
@@ -89,20 +132,55 @@
   function updateVehicle({ latitude: lat, longitude: lng, heading, speed, online: status }) {
     if (!map || !marker) return;
 
+    const oldPos = marker.getLatLng();
+    const newPos = [lat, lng];
+    
+    // Update vehicle stats
     currentSpeed = speed || 0;
     currentHeading = heading || 0;
     online = status ?? true;
 
-    marker.setLatLng([lat, lng]);
+    // Smoothly animate the marker movement
+    marker.slideTo(newPos, {
+      duration: 1000,
+      keepAtCenter: true
+    });
+
+    // Update marker properties
     marker.setRotationAngle(currentHeading);
     marker.setIcon(createIcon(online));
-    // marker.getPopup().setContent(createPopupContent());
 
-    polyline.addLatLng([lat, lng]);
+    // Update trail with fade effect
+    polyline.addLatLng(newPos);
     const points = polyline.getLatLngs();
-    if (points.length > 50) polyline.setLatLngs(points.slice(points.length - 50));
+    if (points.length > 50) {
+      // Keep last 50 points for performance
+      polyline.setLatLngs(points.slice(points.length - 50));
+    }
 
-    map.panTo([lat, lng], { animate: true, duration: 1 });
+    // Calculate if we should auto-pan the map
+    const bounds = map.getBounds();
+    const isInView = bounds.contains(newPos);
+    
+    if (!isInView) {
+      // If vehicle moves out of view, pan to new location
+      map.panTo(newPos, {
+        animate: true,
+        duration: 1,
+        easeLinearity: 0.5
+      });
+    }
+
+    // Emit location update event for parent components
+    container.dispatchEvent(new CustomEvent('locationUpdate', {
+      detail: {
+        latitude: lat,
+        longitude: lng,
+        heading: currentHeading,
+        speed: currentSpeed,
+        online
+      }
+    }));
   }
 
   function connectWebSocket() {
