@@ -6,6 +6,25 @@
   export let height = '280px';
   export let isLive = false;
 
+  // Debounced hover state
+  let hoverTimeout;
+  function setHover(value) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = setTimeout(() => {
+      hover = value;
+      if (!value) hoverTopRight = false;
+    }, 100);
+  }
+
+  // Error handling
+  function handleVideoError(videoElement, channelId) {
+    console.error(`Video playback error for channel ${channelId}`);
+    // Attempt to recover by reloading the video
+    if (videoElement) {
+      videoElement.load();
+    }
+  }
+
   let activeChannel = null;
   let isFullscreen = false;
   let hover = false;
@@ -13,6 +32,8 @@
   let videoRef;
   let playedChannels = {};
   let gridVideoRefs = {};
+  let videoPositions = {}; // Store current time for each video
+  let videoStates = {}; // Store playback state and speed for each video
 
   const sampleUrl =
     'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
@@ -25,27 +46,61 @@
   ];
 
   function toggleChannel(id) {
-    // If this channel was already played, ensure it stays playing in expanded view
+    // Save current time and state of the active channel before switching
+    if (activeChannel && videoRef) {
+      videoPositions[activeChannel] = videoRef.currentTime;
+      videoStates[activeChannel] = {
+        paused: videoRef.paused,
+        playbackRate: videoRef.playbackRate
+      };
+    }
+
+    // If this channel was already played, ensure it stays in correct state in expanded view
     const wasPlayed = playedChannels[id];
     activeChannel = activeChannel === id ? null : id;
     
     if (activeChannel && wasPlayed) {
-      // If expanding a played video, ensure it plays in expanded view
+      const state = videoStates[activeChannel] || { paused: false, playbackRate: 1 };
       setTimeout(() => {
-        if (videoRef) videoRef.play();
+        if (videoRef) {
+          videoRef.currentTime = videoPositions[activeChannel] || 0;
+          videoRef.playbackRate = state.playbackRate;
+          if (state.paused) {
+            videoRef.pause();
+          } else {
+            videoRef.play();
+          }
+        }
       }, 0);
     }
   }
 
   function exitExpanded() {
+    // Save position and state of the expanded video before closing
+    if (activeChannel && videoRef) {
+      videoPositions[activeChannel] = videoRef.currentTime;
+      videoStates[activeChannel] = {
+        paused: videoRef.paused,
+        playbackRate: videoRef.playbackRate
+      };
+    }
+    
     const currentChannel = activeChannel;
     activeChannel = null;
-    // Resume playback of all played videos in grid view
+    
+    // Resume videos in grid view with their saved states
     setTimeout(() => {
       Object.keys(playedChannels).forEach(channelId => {
         const gridVideo = gridVideoRefs[channelId];
         if (gridVideo && playedChannels[channelId]) {
-          gridVideo.play();
+          const state = videoStates[channelId] || { paused: false, playbackRate: 1 };
+          gridVideo.currentTime = videoPositions[channelId] || 0;
+          gridVideo.playbackRate = state.playbackRate;
+          if (state.paused) {
+            gridVideo.pause();
+          } else {
+            gridVideo.play();
+          }
         }
       });
     }, 0);
@@ -64,8 +119,17 @@
   }
 
   function togglePlay() {
-    if (videoRef?.paused) videoRef.play();
-    else videoRef?.pause();
+    if (videoRef?.paused) {
+      videoRef.play();
+      if (activeChannel) {
+        videoStates[activeChannel] = { ...videoStates[activeChannel], paused: false };
+      }
+    } else {
+      videoRef?.pause();
+      if (activeChannel) {
+        videoStates[activeChannel] = { ...videoStates[activeChannel], paused: true };
+      }
+    }
   }
 
   function playVideo(chId, event) {
@@ -87,17 +151,29 @@
   }
 
   function changeSpeed(rate) {
-    if (videoRef) videoRef.playbackRate = rate;
+    if (videoRef) {
+      videoRef.playbackRate = rate;
+      if (activeChannel) {
+        videoStates[activeChannel] = { ...videoStates[activeChannel], playbackRate: rate };
+      }
+    }
   }
 
   function handleKeydown(e) {
     if (!browser) return; // ✅
-    if (!activeChannel || isLive) return;
-    if (e.code === 'ArrowLeft') skip(-5);
-    else if (e.code === 'ArrowRight') skip(5);
-    else if (e.code === 'Space') {
+    if (!activeChannel) return;
+    
+    // Allow only space (play/pause) for live videos
+    if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();
+      return;
+    }
+    
+    // Skip controls only for non-live videos
+    if (!isLive) {
+      if (e.code === 'ArrowLeft') skip(-5);
+      else if (e.code === 'ArrowRight') skip(5);
     }
   }
 
@@ -119,6 +195,24 @@
   onDestroy(() => {
     if (!browser) return;
     window.removeEventListener('keydown', handleKeydown);
+    
+    // Clean up timeouts and video states
+    clearTimeout(hoverTimeout);
+    
+    // Stop and clean up all videos
+    Object.values(gridVideoRefs).forEach(videoRef => {
+      if (videoRef) {
+        videoRef.pause();
+        videoRef.removeAttribute('src');
+        videoRef.load();
+      }
+    });
+    
+    if (videoRef) {
+      videoRef.pause();
+      videoRef.removeAttribute('src');
+      videoRef.load();
+    }
   });
 </script>
 
@@ -129,20 +223,17 @@
   aria-label="Video preview grid"
   class="relative bg-black rounded-xl overflow-hidden shadow-xl flex items-center justify-center transition-all duration-300"
   style="width: {width}; height: {height};"
-  on:mouseenter={() => (hover = true)}
-  on:mouseleave={() => {
-    hover = false;
-    hoverTopRight = false;
-  }}
+  on:mouseenter={() => setHover(true)}
+  on:mouseleave={() => setHover(false)}
 >
   {#if !activeChannel}
     <!-- 🧩 4-channel grid -->
-    <div class="grid grid-cols-2 grid-rows-2 gap-[2px] bg-white p-[2px] w-full h-full rounded-lg">
+    <div class="grid grid-cols-2 grid-rows-2 gap-0.5 bg-white p-1 w-full h-full rounded-lg">
       {#each channels as ch}
         <div
           role="button"
           tabindex="0"
-          class="relative bg-black cursor-pointer focus:outline-none overflow-hidden"
+          class="relative bg-black cursor-pointer focus:outline-none overflow-hidden rounded-lg transform-gpu"
           on:click={() => toggleChannel(ch.id)}
           on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChannel(ch.id); }}
         >
@@ -152,12 +243,25 @@
             muted
             loop
             playsinline
-            on:loadeddata={() => {
+            on:timeupdate={() => {
               if (playedChannels[ch.id]) {
-                gridVideoRefs[ch.id].play();
+                videoPositions[ch.id] = gridVideoRefs[ch.id].currentTime;
               }
             }}
-            class="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+            on:loadeddata={() => {
+              if (playedChannels[ch.id]) {
+                const state = videoStates[ch.id] || { paused: false, playbackRate: 1 };
+                gridVideoRefs[ch.id].currentTime = videoPositions[ch.id] || 0;
+                gridVideoRefs[ch.id].playbackRate = state.playbackRate;
+                if (state.paused) {
+                  gridVideoRefs[ch.id].pause();
+                } else {
+                  gridVideoRefs[ch.id].play();
+                }
+              }
+            }}
+            class="w-full h-full object-cover transform-gpu transition-transform duration-300 hover:scale-[1.03]"
+            on:error={() => handleVideoError(gridVideoRefs[ch.id], ch.id)}
           ></video>
           {#if !playedChannels[ch.id]}
             <div class="absolute inset-0 bg-gray-700/70 flex items-center justify-center">
@@ -171,9 +275,6 @@
               </button>
             </div>
           {/if}
-          <!-- <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
-            {ch.label}
-          </div> -->
         </div>
       {/each}
     </div>
@@ -189,10 +290,16 @@
             playedChannels = { ...playedChannels };
           }
         }}
+        on:timeupdate={() => {
+          if (activeChannel) {
+            videoPositions[activeChannel] = videoRef.currentTime;
+          }
+        }}
         muted={isLive}
         loop={isLive}
         playsinline
-        class="w-full h-full object-cover"
+        class="w-full h-full object-cover transform-gpu"
+        on:error={() => handleVideoError(videoRef, activeChannel)}
       ></video>
       {#if !playedChannels[activeChannel]}
         <div class="absolute inset-0 bg-gray-700/70 flex items-center justify-center">
@@ -228,7 +335,7 @@
       <!-- 🎛️ YouTube-style controls -->
       {#if !isLive && hover}
         <div
-          class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-black/40 rounded-full px-4 py-1 flex items-center gap-5 text-white text-lg backdrop-blur-sm transition"
+          class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-black/40 rounded-full px-4 py-1 flex items-center gap-5 text-white text-lg backdrop-blur-sm transition-opacity duration-200 hover-controls"
         >
           <button on:click={() => skip(-5)} title="Back 5s" class="hover:scale-125 transition">⏪</button>
           <button on:click={togglePlay} title="Play/Pause" class="hover:scale-150 text-2xl transition">⏯</button>
@@ -265,11 +372,30 @@
 
 <style>
   #video-preview-container {
-    transition: all 0.3s ease-in-out;
+    transform: translateZ(0); /* Force GPU acceleration */
+    backface-visibility: hidden;
+    perspective: 1000px;
+    will-change: transform;
   }
   :global(video) {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  /* Optimize transitions */
+  :global(.transform-gpu) {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    will-change: transform;
+  }
+  /* Prevent wobble on hover controls */
+  :global(.hover-controls) {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: opacity, transform;
   }
 </style>
