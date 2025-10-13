@@ -1,105 +1,136 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
-  import maplibregl from 'maplibre-gl';
-  import 'maplibre-gl/dist/maplibre-gl.css';
 
-  // Props
   export let latitude = 12.9716;
   export let longitude = 77.5946;
   export let online = true;
   export let width = '600px';
-  export let height = '300px';
-  export let deviceId = ''; // 👈 identify which vehicle this map belongs to
+  export let height = '400px';
+  export let deviceId = '';
+  export let WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:11007';
+
+  // Custom icons in static folder
+  const greenCarIcon = '/green-car.png';
+  const redCarIcon = '/red-car.png';
 
   let container;
   let map;
   let marker;
+  let polyline;
+  let L;
+  let layers = {};
+  let currentSpeed = 0;
+  let currentHeading = 0;
+  let mapType = 'streets';
   let isFullscreen = false;
   let socket;
-  const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:11007'; // 👈 your real-time WebSocket backend
 
-  // Initialize map when component mounts
-  onMount(() => {
+  async function initializeMap() {
     if (!browser) return;
 
-    // 🗺️ Create MapLibre map instance
-    map = new maplibregl.Map({
-      container,
-      style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-      center: [longitude, latitude],
-      zoom: 15,
-    });
+    const leafletModule = await import('leaflet');
+    await import('leaflet/dist/leaflet.css');
+    await import('leaflet-rotatedmarker/leaflet.rotatedMarker.js');
+    L = leafletModule.default;
 
-    // 🎯 Custom marker (arrow for active, pin for inactive)
-    const el = document.createElement('div');
-    el.className = 'marker';
-    el.innerHTML = online
-      ? `<div style="width:18px;height:18px;background:green;border-radius:50%;border:2px solid white;"></div>`
-      : `<div style="width:18px;height:18px;background:red;border-radius:50%;border:2px solid white;"></div>`;
-    el.style.cursor = 'pointer';
+    // Initialize map
+    map = L.map(container, { zoomControl: false }).setView([latitude, longitude], 15);
 
-    marker = new maplibregl.Marker({ element: el })
-      .setLngLat([longitude, latitude])
-      .addTo(map);
+    // Tile layers
+    layers = {
+      streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }),
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri'
+      }),
+      hybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '© Google'
+      })
+    };
+    layers[mapType].addTo(map);
 
-    // 🌐 Connect to WebSocket (production tracking)
+    // Marker
+    marker = L.marker([latitude, longitude], {
+      icon: createIcon(online),
+      rotationAngle: 0,
+      rotationOrigin: 'center'
+    }).addTo(map);
+
+    // const popup = L.popup({ closeButton: false }).setContent(createPopupContent());
+    // marker.bindPopup(popup).openPopup();
+
+    // Polyline for trail
+    polyline = L.polyline([[latitude, longitude]], { color: '#3B82F6', weight: 3, opacity: 0.8 }).addTo(map);
+
     connectWebSocket();
-  });
+  }
+
+  function createIcon(isOnline) {
+    return L.icon({
+      iconUrl: isOnline ? greenCarIcon : redCarIcon,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
+  }
+
+  // function createPopupContent() {
+  //   return `
+  //     <div class="font-semibold text-sm">
+  //       <div>Speed: ${currentSpeed} km/h</div>
+  //       <div>Heading: ${currentHeading}°</div>
+  //       <div>Status: ${online ? '🟢 Online' : '🔴 Offline'}</div>
+  //     </div>
+  //   `;
+  // }
+
+  function updateVehicle({ latitude: lat, longitude: lng, heading, speed, online: status }) {
+    if (!map || !marker) return;
+
+    currentSpeed = speed || 0;
+    currentHeading = heading || 0;
+    online = status ?? true;
+
+    marker.setLatLng([lat, lng]);
+    marker.setRotationAngle(currentHeading);
+    marker.setIcon(createIcon(online));
+    // marker.getPopup().setContent(createPopupContent());
+
+    polyline.addLatLng([lat, lng]);
+    const points = polyline.getLatLngs();
+    if (points.length > 50) polyline.setLatLngs(points.slice(points.length - 50));
+
+    map.panTo([lat, lng], { animate: true, duration: 1 });
+  }
 
   function connectWebSocket() {
     if (!browser) return;
+    socket = new WebSocket(WS_URL);
 
-    try {
-      socket = new WebSocket(WS_URL);
-
-      socket.onopen = () => console.log(`[MapView] ✅ Connected to ${WS_URL}`);
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // Example format:
-          // { deviceid: "VEH001", latitude: 12.9719, longitude: 77.5948, online: true }
-          if (data.deviceid === deviceId && data.latitude && data.longitude) {
-            updatePosition(data.latitude, data.longitude, data.online);
-          }
-        } catch (err) {
-          console.error('[MapView] JSON parse error', err);
-        }
-      };
-
-      socket.onclose = () => {
-        console.warn('[MapView] 🔌 Connection closed. Reconnecting in 3s...');
-        setTimeout(connectWebSocket, 3000);
-      };
-
-      socket.onerror = (err) => console.error('[MapView] ⚠️ WebSocket error', err);
-    } catch (err) {
-      console.error('[MapView] ❌ Failed to connect', err);
-    }
+    socket.onopen = () => console.log(`[Leaflet] Connected to ${WS_URL}`);
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.deviceid === deviceId) updateVehicle(data);
+      } catch (err) {
+        console.error('[Leaflet] JSON parse error', err);
+      }
+    };
+    socket.onclose = () => setTimeout(connectWebSocket, 3000);
+    socket.onerror = (err) => console.error('[Leaflet] WebSocket error', err);
   }
 
-  // 🧭 Smooth marker + map movement
-  function updatePosition(lat, lon, isOnline) {
-    if (!map || !marker) return;
-
-    // Update marker color dynamically
-    const color = isOnline ? 'green' : 'red';
-    marker.getElement().innerHTML = `<div style="width:18px;height:18px;background:${color};border-radius:50%;border:2px solid white;"></div>`;
-
-    // Smooth pan
-    map.easeTo({
-      center: [lon, lat],
-      duration: 1000,
-      essential: true,
-    });
-
-    // Move marker
-    marker.setLngLat([lon, lat]);
+  function changeMapType(type) {
+    if (!map || !layers[type]) return;
+    Object.values(layers).forEach(layer => map.removeLayer(layer));
+    layers[type].addTo(map);
+    mapType = type;
   }
 
   function toggleFullscreen() {
+    if (!browser) return;
     if (!document.fullscreenElement) {
       container.requestFullscreen();
       isFullscreen = true;
@@ -107,34 +138,159 @@
       document.exitFullscreen();
       isFullscreen = false;
     }
+    setTimeout(() => map.invalidateSize(), 100);
   }
 
-  onDestroy(() => {
-    if (map) map.remove();
-    if (socket) socket.close();
-  });
+  onMount(() => initializeMap());
+  onDestroy(() => { if (socket) socket.close(); if (map) map.remove(); });
 </script>
 
-<!-- 🌍 Map container -->
-<div
-  bind:this={container}
-  class="relative rounded-lg shadow-lg overflow-hidden transition-all duration-500 ease-in-out"
-  style="width:{width}; height:{height};"
->
-  <button
-    on:click={toggleFullscreen}
-    class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80 z-50 transition"
-    title={isFullscreen ? 'Exit Fullscreen' : 'Full Preview'}
-  >
-    [ ]
-  </button>
+<div bind:this={container} class="relative rounded-lg shadow-lg overflow-hidden" style="width:{width}; height:{height};">
+  <div class="leaflet-map-container absolute inset-0">
+    <!-- Map will be rendered here -->
+  </div>
+
+  <!-- Controls container with higher z-index -->
+  <div class="absolute inset-0 pointer-events-none">
+    <!-- Map type buttons -->
+    <div class="absolute top-3 left-3 z-[1000] flex gap-2 bg-white rounded shadow pointer-events-auto">
+      <button 
+        class="px-2 py-1 rounded text-sm transition-colors duration-200 ease-in-out" 
+        class:bg-blue-500={mapType==='streets'} 
+        class:text-white={mapType==='streets'} 
+        class:hover:bg-gray-100={mapType!=='streets'}
+        on:click={()=>changeMapType('streets')}
+      >
+        Streets
+      </button>
+      <button 
+        class="px-2 py-1 rounded text-sm transition-colors duration-200 ease-in-out" 
+        class:bg-blue-500={mapType==='satellite'} 
+        class:text-white={mapType==='satellite'}
+        class:hover:bg-gray-100={mapType!=='satellite'}
+        on:click={()=>changeMapType('satellite')}
+      >
+        Satellite
+      </button>
+      <button 
+        class="px-2 py-1 rounded text-sm transition-colors duration-200 ease-in-out" 
+        class:bg-blue-500={mapType==='hybrid'} 
+        class:text-white={mapType==='hybrid'}
+        class:hover:bg-gray-100={mapType!=='hybrid'}
+        on:click={()=>changeMapType('hybrid')}
+      >
+        Hybrid
+      </button>
+    </div>
+
+    <!-- Vehicle info panel -->
+    <div class="absolute left-3 bottom-3 z-[1000] bg-white p-3 rounded shadow text-sm pointer-events-auto">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600">Speed:</span>
+          <span class="font-medium">{currentSpeed} km/h</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600">Heading:</span>
+          <span class="font-medium">{currentHeading}°</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600">Status:</span>
+          <span class="font-medium flex items-center gap-1">
+            <span class={online ? "text-green-600" : "text-red-600"}>●</span>
+            {online ? 'Online' : 'Offline'}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right controls container -->
+    <div class="absolute right-3 top-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
+      <!-- Fullscreen button -->
+      <button 
+        on:click={toggleFullscreen} 
+        class="w-8 h-8 bg-white rounded shadow flex items-center justify-center hover:bg-gray-100 transition-colors"
+        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path 
+            stroke-linecap="round" 
+            stroke-linejoin="round" 
+            stroke-width="2" 
+            d={isFullscreen 
+              ? "M9 9h6v6H9z" 
+              : "M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5m-5 14h4m-4 0v-4m0 0l5 5m5-5v4m0 0h-4m0 0l-5-5"}
+          />
+        </svg>
+      </button>
+
+      <!-- Zoom buttons -->
+      <div class="flex flex-col gap-1 bg-white rounded shadow">
+        <button 
+          class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 transition-colors border-b border-gray-100" 
+          on:click={()=>map?.zoomIn()}
+          title="Zoom In"
+        >
+          +
+        </button>
+        <button 
+          class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 transition-colors" 
+          on:click={()=>map?.zoomOut()}
+          title="Zoom Out"
+        >
+          −
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
-  :global(.maplibregl-canvas) {
+  :global(.leaflet-container) {
+    width: 100%;
+    height: 100%;
     border-radius: 0.5rem;
   }
-  :global(.maplibregl-control-container) {
+
+  /* Hide default Leaflet controls */
+  :global(.leaflet-control-container) {
     display: none;
+  }
+
+  /* Ensure our controls are always on top */
+  :global(.leaflet-pane) {
+    z-index: 400 !important;
+  }
+
+  :global(.leaflet-map-pane) {
+    z-index: 400 !important;
+  }
+
+  button {
+    font-family: system-ui, -apple-system, sans-serif;
+    user-select: none;
+  }
+
+  /* Custom styles for map controls */
+  :global(.map-control) {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  :global(.map-button) {
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+  }
+
+  :global(.map-button:hover) {
+    background-color: #f3f4f6;
+  }
+
+  :global(.leaflet-container) {
+    width: 100%;
+    height: 100%;
+    border-radius: 0.5rem;
   }
 </style>
