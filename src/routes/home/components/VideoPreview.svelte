@@ -5,7 +5,6 @@
   export let width = '500px';
   export let height = '280px';
   export let isLive = false;
-  export let controlsWidth = '96%';
 
   // Debounced hover state for controls
   let hoverTimeout;
@@ -282,7 +281,7 @@
 <div
   id="video-preview-container"
   tabindex="0"
-  role="region"
+  role="button"
   aria-label="Video preview grid"
   class="relative bg-black rounded-xl overflow-hidden shadow-xl flex items-center justify-center transition-all duration-300"
   style="width: {width}; height: {height};"
@@ -351,7 +350,7 @@
     <div
       class="relative w-full h-full"
       tabindex="0"
-      role="region"
+      role="button"
       aria-label="Expanded video view"
     >
       <video
@@ -398,6 +397,7 @@
 
      <!-- Hover area for close button (top-right corner only) -->
 <div
+  role="presentation"
   class="absolute top-0 right-0 w-6 h-6"
   on:mouseenter={() => hoverClose = true}
   on:mouseleave={() => hoverClose = false}

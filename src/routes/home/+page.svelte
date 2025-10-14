@@ -9,6 +9,7 @@
   import DeviceOverview from './components/DeviceOverview.svelte';
   import DriverVehicleInfo from './components/DriverVehicleInfo.svelte';
   import Hamburger from './components/Hamburger.svelte';
+  import LeftPanel from './components/LeftPanel.svelte';
 
   let vehicleData = {};
   let isHamburgerOpen = false;
@@ -37,9 +38,18 @@
   });
 
   function handleVehicleSelect(selectedId) {
-    goto(`/home`);
-    isHamburgerOpen = false; // auto-close after selection
+  if (vehicles[selectedId]) {
+    vehicleData = {
+      ...dummyVehicle,
+      deviceid: selectedId,
+      online: vehicles[selectedId] === 'active',
+      latitude: 13.0827,
+      longitude: 80.2707
+    };
   }
+  isHamburgerOpen = false; // auto-close sidebar
+}
+
 </script>
 
 <!-- 🧭 Main Layout -->
@@ -73,7 +83,9 @@
     />
 
     <!-- 🧱 Left Section (optional/future use) -->
-    <div class="w-[600px] bg-white rounded-lg shadow-inner"></div>
+    <div class="w-[600px] bg-white rounded-lg shadow-inner">
+      <LeftPanel/>
+    </div>
 
     <!-- 🎥 Middle Section -->
     <div class="flex flex-col flex-shrink-0 items-center gap-4 overflow-hidden">
