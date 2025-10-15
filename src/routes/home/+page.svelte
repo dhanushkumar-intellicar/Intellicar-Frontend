@@ -53,7 +53,7 @@
 </script>
 
 <!-- 🧭 Main Layout -->
-<div class="min-h-screen bg-gray-100 flex flex-col overflow-hidden relative">
+<div class="h-screen bg-gray-100 flex flex-col overflow-hidden relative">
   <!-- Header -->
   <div class="flex items-center justify-between p-4 bg-white shadow-md">
     <div class="flex items-center gap-3">

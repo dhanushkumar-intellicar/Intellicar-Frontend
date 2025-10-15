@@ -1,1 +1,9 @@
 @import "tailwindcss";
+html, body {
+  height: 100%;
+  overflow: hidden; /* Prevents page-level scroll */
+}
+
+body {
+  overscroll-behavior: none; /* Avoid scroll bounce on touch devices */
+}
