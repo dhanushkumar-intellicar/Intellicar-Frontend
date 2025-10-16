@@ -3,13 +3,13 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { dummyVehicle } from './dummyData.js';
-  import VideoPreview from './components/VideoPreview.svelte';
-  import MapView from './components/MapView.svelte';
-  import RightPanel from './components/RightPanel.svelte';
-  import DeviceOverview from './components/DeviceOverview.svelte';
-  import DriverVehicleInfo from './components/DriverVehicleInfo.svelte';
+  import VideoPreview from './components/MiddlePanel/VideoPreview.svelte';
+  import MapView from './components/MiddlePanel/MapView.svelte';
+  import RightPanel from './components/RightPanel/RightPanel.svelte';
+  import DeviceOverview from './components/MiddlePanel/DeviceOverview.svelte';
+  import DriverVehicleInfo from './components/MiddlePanel/DriverVehicleInfo.svelte';
   import Hamburger from './components/Hamburger.svelte';
-  import LeftPanel from './components/LeftPanel.svelte';
+  import LeftPanel from './components/LeftPanel/LeftPanel.svelte';
 
   let vehicleData = {};
   let isHamburgerOpen = false;

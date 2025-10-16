@@ -1,4 +1,4 @@
 <script>
-  import Login from '../routes/login/+page.svelte';
+  import Login from './login/+page.svelte';
 </script>
 <Login/>

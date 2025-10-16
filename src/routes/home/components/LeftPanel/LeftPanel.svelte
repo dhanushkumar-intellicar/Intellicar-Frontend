@@ -78,24 +78,24 @@ onMount(() => {
     <!-- Form -->
     <div class="flex-1 overflow-y-auto p-4 space-y-4">
         <!-- Channels -->
-<div>
-  <label class="block text-sm font-medium text-gray-700 mb-1" for="channel-0">Channels</label>
-  <div class="flex flex-wrap gap-2">
-    {#each [0,1,2,3] as ch}
-      <label class="flex items-center gap-1 px-2 py-1 bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition" for={"channel-" + ch}>
-        <input
-          id={"channel-" + ch}
-          type="radio"
-          name="channel"
-          bind:group={selectedChannel}
-          value={ch}
-          class="accent-blue-600 scale-105"
-        />
-        <span class="text-sm">CH{ch + 1}</span>
-      </label>
-    {/each}
-  </div>
-</div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="channel-0">Channels</label>
+            <div class="flex flex-wrap gap-2">
+                {#each [0,1,2,3] as ch}
+                <label class="flex items-center gap-1 px-2 py-1 bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition" for={"channel-" + ch}>
+                    <input
+                        id={"channel-" + ch}
+                        type="radio"
+                        name="channel"
+                        bind:group={selectedChannel}
+                        value={ch}
+                        class="accent-blue-600 scale-105"
+                        />
+                    <span class="text-sm">CH{ch + 1}</span>
+                </label>
+                {/each}
+            </div>
+        </div>
 
         <!-- Date & Time -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">

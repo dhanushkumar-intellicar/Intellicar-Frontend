@@ -1,6 +1,9 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
+ import greenCarIcon from '../../../../assets/green-car.png';
+ import redCarIcon from '../../../../assets/red-car.png';
+
 
   export let latitude = 12.9716;
   export let longitude = 77.5946;
@@ -10,9 +13,7 @@
   export let deviceId = '';
   export let WS_URL = import.meta.env.VITE_WS_URL;
 
-  // Custom icons in static folder
-  const greenCarIcon = '/green-car.png';
-  const redCarIcon = '/red-car.png';
+  
 
   let container;
   let map;
@@ -119,15 +120,15 @@
     });
   }
 
-  // function createPopupContent() {
-  //   return `
-  //     <div class="font-semibold text-sm">
-  //       <div>Speed: ${currentSpeed} km/h</div>
-  //       <div>Heading: ${currentHeading}°</div>
-  //       <div>Status: ${online ? '🟢 Online' : '🔴 Offline'}</div>
-  //     </div>
-  //   `;
-  // }
+  function createPopupContent() {
+    return `
+      <div class="font-semibold text-sm">
+        <div>Speed: ${currentSpeed} km/h</div>
+        <div>Heading: ${currentHeading}°</div>
+        <div>Status: ${online ? '🟢 Online' : '🔴 Offline'}</div>
+      </div>
+    `;
+  }
 
   function updateVehicle({ latitude: lat, longitude: lng, heading, speed, online: status }) {
     if (!map || !marker) return;

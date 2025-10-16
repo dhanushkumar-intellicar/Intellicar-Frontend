@@ -55,7 +55,7 @@
     <div class="flex items-center gap-2">
       <input
         type="text"
-        placeholder="Search ID..."
+        placeholder="Search Device ID..."
         on:input={(e) => search.set(e.target.value)}
         aria-label="Search devices"
         class="w-40 px-2 py-1 text-xs border rounded-md bg-white focus:ring-2 focus:ring-blue-400 outline-none shadow-sm"
