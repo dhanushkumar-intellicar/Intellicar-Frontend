@@ -81,6 +81,16 @@ function changeSpeed(speed) {
         currentSpeed = speed;
     }
 }
+export function playExternalVideo({ channel, url }) {
+    // Replace the sample URL of the chosen channel and play
+    const chId = `CH${channel + 1}`;
+    const video = gridVideoRefs[chId];
+    if (video) {
+      video.src = url;
+      video.play();
+      playedChannels[chId] = true;
+    }
+  }
 
 const sampleUrl = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
@@ -445,7 +455,7 @@ onDestroy(() => {
             <!-- ✕ Close (shown only on hover in this area) -->
             <button
                 type="button"
-                class="bg-black/70 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/90 transition {hoverClose ? '' : 'hidden'}"
+                class="bg-black/30 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
                 on:click={exitExpanded}
                 aria-label="Close"
                 >

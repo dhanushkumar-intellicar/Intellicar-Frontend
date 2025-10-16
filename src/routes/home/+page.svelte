@@ -14,6 +14,13 @@
   let vehicleData = {};
   let isHamburgerOpen = false;
 
+  let videoPreviewRef;
+
+  function handleVideoPlay(videoInfo) {
+    videoPreviewRef.playExternalVideo(videoInfo);
+  }
+
+
   // Example list of vehicles
   let vehicles = {
     VEH001: 'active',
@@ -84,12 +91,12 @@
 
     <!-- 🧱 Left Section (optional/future use) -->
     <div class="w-[600px] bg-white rounded-lg shadow-inner">
-      <LeftPanel/>
+      <LeftPanel onVideoSelect={handleVideoPlay}/>
     </div>
 
     <!-- 🎥 Middle Section -->
     <div class="flex flex-col flex-shrink-0 items-center gap-4 overflow-hidden">
-      <VideoPreview width="600px" height="340px" isLive={vehicleData.online} />
+      <VideoPreview width="600px" height="340px" isLive={vehicleData.online} bind:this={videoPreviewRef}/>
 
       <MapView
         latitude={vehicleData.latitude}
