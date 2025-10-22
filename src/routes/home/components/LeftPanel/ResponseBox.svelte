@@ -1,12 +1,23 @@
 <script>
-  export let responseData = {};
+  export let responseData = null;
+  export let onlyJson = false;
 </script>
 
-{#if Object.keys(responseData).length > 0}
-  <div class="font-mono text-xs bg-white rounded-lg p-2 shadow-inner border border-gray-300">
-    <div class="font-semibold text-gray-700 mb-1">{responseData.message}</div>
-    <pre>{JSON.stringify(responseData.data, null, 2)}</pre>
-  </div>
+{#if responseData}
+  {#if onlyJson}
+    <!-- Only JSON output -->
+    <pre class="text-xs bg-gray-900 text-green-300 p-3 rounded-lg overflow-x-auto">
+{JSON.stringify(responseData, null, 2)}
+    </pre>
+  {:else}
+    <!-- Normal box layout -->
+    <div class="bg-gray-50 p-3 rounded-lg border shadow-sm">
+      <h3 class="text-sm font-semibold mb-1 text-gray-700">Response:</h3>
+      <pre class="text-xs rounded-lg overflow-x-auto">
+{JSON.stringify(responseData, null, 2)}
+      </pre>
+    </div>
+  {/if}
 {:else}
-  <div class="text-gray-500 text-center text-sm">No response yet</div>
+  <p class="text-gray-500 text-sm">No response available.</p>
 {/if}
