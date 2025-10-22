@@ -1,4 +1,5 @@
 <script>
+    import { tick } from "svelte";
 import {
     onMount,
     onDestroy
@@ -85,19 +86,42 @@ function changeSpeed(speed) {
         currentSpeed = speed;
     }
 }
-export function playExternalVideo({
-    channel,
-    url
-}) {
-    // Replace the sample URL of the chosen channel and play
+export function playExternalVideo({ channel, url }) {
     const chId = `CH${channel + 1}`;
     const video = gridVideoRefs[chId];
-    if (video) {
-        video.src = url;
-        video.play();
-        playedChannels[chId] = true;
-    }
+    if (!video) return;
+
+    // ⛔ Stop all other channels
+    Object.values(gridVideoRefs).forEach(v => {
+        if (v) {
+            v.pause();
+            v.currentTime = 0;
+        }
+    });
+
+    // 🎥 Play in the correct channel
+    video.src = url;
+    video.currentTime = 0;
+    video.play();
+
+    playedChannels[chId] = true;
 }
+
+
+
+  export function stopAllVideos() {
+    Object.values(gridVideoRefs).forEach(v => {
+        if (v) {
+            v.pause();
+            v.currentTime = 0;
+            v.removeAttribute("src");
+        }
+    });
+    playedChannels = {};
+    activeChannel = null;
+}
+
+
 
 const sampleUrl = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
@@ -223,10 +247,16 @@ function togglePlay() {
 
 function playVideo(chId, event) {
     if (event) event.stopPropagation();
+
+    // ✅ Pause all other grid videos
+    Object.keys(gridVideoRefs).forEach(id => {
+        if (id !== chId && gridVideoRefs[id]) {
+            gridVideoRefs[id].pause();
+        }
+    });
+
     playedChannels[chId] = true;
-    playedChannels = {
-        ...playedChannels
-    };
+    playedChannels = { ...playedChannels };
 
     const gridVideo = gridVideoRefs[chId];
     if (gridVideo) gridVideo.play();
@@ -235,6 +265,7 @@ function playVideo(chId, event) {
         videoRef.play();
     }
 }
+
 
 function handleKeydown(e) {
     if (!browser) return;
