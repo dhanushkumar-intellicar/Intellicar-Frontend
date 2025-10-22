@@ -6,6 +6,10 @@ import {
 import {
     browser
 } from '$app/environment';
+import minimize from '../../../../assets/minimize.png'
+import maximize from '../../../../assets/maximize.png'
+
+
 
 export let width = '500px';
 export let height = '280px';
@@ -81,16 +85,19 @@ function changeSpeed(speed) {
         currentSpeed = speed;
     }
 }
-export function playExternalVideo({ channel, url }) {
+export function playExternalVideo({
+    channel,
+    url
+}) {
     // Replace the sample URL of the chosen channel and play
     const chId = `CH${channel + 1}`;
     const video = gridVideoRefs[chId];
     if (video) {
-      video.src = url;
-      video.play();
-      playedChannels[chId] = true;
+        video.src = url;
+        video.play();
+        playedChannels[chId] = true;
     }
-  }
+}
 
 const sampleUrl = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
@@ -187,13 +194,12 @@ function toggleFullscreen() {
     if (!browser) return;
     const container = document.getElementById('video-preview-container');
     if (!document.fullscreenElement) {
-        container ?.requestFullscreen();
-        isFullscreen = true;
+        container?.requestFullscreen();
     } else {
         document.exitFullscreen();
-        isFullscreen = false;
     }
 }
+
 
 function togglePlay() {
     if (videoRef ?.paused) {
@@ -276,6 +282,11 @@ function handleKeydown(e) {
 
 onMount(() => {
     if (!browser) return;
+
+    document.addEventListener('fullscreenchange', () => {
+    isFullscreen = !!document.fullscreenElement;
+});
+
 
     // ✅ Initialize per-channel states before anything else
     channels.forEach(ch => {
@@ -546,12 +557,17 @@ onDestroy(() => {
 
         <!-- Fullscreen Button (bottom-right corner) -->
         <button
-            on:click={toggleFullscreen}
-            class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80 transition"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Full Preview'}
-            >
-            [ ]
-        </button>
+    on:click={toggleFullscreen}
+    class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80 transition"
+    title={isFullscreen ? 'Exit Fullscreen' : 'Full Preview'}
+>
+    {#if isFullscreen}
+    <img src={minimize} alt="Minimize" class="w-4 h-4"/>
+    {:else}
+        <img src={maximize} alt="Maximize" class="w-4 h-4"/>
+    {/if}
+</button>
+
     </div>
     {/if}
 </div>
