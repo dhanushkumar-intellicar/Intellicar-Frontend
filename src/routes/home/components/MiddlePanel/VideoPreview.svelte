@@ -1,5 +1,7 @@
 <script>
-    import { tick } from "svelte";
+import {
+    tick
+} from "svelte";
 import {
     onMount,
     onDestroy
@@ -9,7 +11,6 @@ import {
 } from '$app/environment';
 import minimize from '../../../../assets/minimize.png'
 import maximize from '../../../../assets/maximize.png'
-
 
 
 export let width = '500px';
@@ -91,7 +92,11 @@ export function playExternalVideo({ channel, url }) {
     const video = gridVideoRefs[chId];
     if (!video) return;
 
-    // ⛔ Stop all other channels
+    // ✅ Ensure autoplay will work
+    video.muted = true; 
+    video.autoplay = true;
+
+    // Stop other channels
     Object.values(gridVideoRefs).forEach(v => {
         if (v) {
             v.pause();
@@ -99,17 +104,21 @@ export function playExternalVideo({ channel, url }) {
         }
     });
 
-    // 🎥 Play in the correct channel
+    // Set and play
     video.src = url;
-    video.currentTime = 0;
-    video.play();
+    video.load()
+
+    // ✅ Wait for Svelte DOM update
+    tick().then(() => {
+        video.play().catch(err => {
+            console.warn(`Autoplay blocked for ${chId}:`, err);
+        });
+    });
 
     playedChannels[chId] = true;
 }
 
-
-
-  export function stopAllVideos() {
+export function stopAllVideos() {
     Object.values(gridVideoRefs).forEach(v => {
         if (v) {
             v.pause();
@@ -120,8 +129,6 @@ export function playExternalVideo({ channel, url }) {
     playedChannels = {};
     activeChannel = null;
 }
-
-
 
 const sampleUrl = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
@@ -218,12 +225,11 @@ function toggleFullscreen() {
     if (!browser) return;
     const container = document.getElementById('video-preview-container');
     if (!document.fullscreenElement) {
-        container?.requestFullscreen();
+        container ?.requestFullscreen();
     } else {
         document.exitFullscreen();
     }
 }
-
 
 function togglePlay() {
     if (videoRef ?.paused) {
@@ -256,7 +262,9 @@ function playVideo(chId, event) {
     });
 
     playedChannels[chId] = true;
-    playedChannels = { ...playedChannels };
+    playedChannels = {
+        ...playedChannels
+    };
 
     const gridVideo = gridVideoRefs[chId];
     if (gridVideo) gridVideo.play();
@@ -265,7 +273,6 @@ function playVideo(chId, event) {
         videoRef.play();
     }
 }
-
 
 function handleKeydown(e) {
     if (!browser) return;
@@ -315,9 +322,8 @@ onMount(() => {
     if (!browser) return;
 
     document.addEventListener('fullscreenchange', () => {
-    isFullscreen = !!document.fullscreenElement;
-});
-
+        isFullscreen = !!document.fullscreenElement;
+    });
 
     // ✅ Initialize per-channel states before anything else
     channels.forEach(ch => {
@@ -402,6 +408,7 @@ onDestroy(() => {
                 videoPositions[ch.id] = gridVideoRefs[ch.id].currentTime;
                 }
                 }}
+                on:error={() => handleVideoError(gridVideoRefs[ch.id], ch.id)}
                 on:loadeddata={() => {
                 if (playedChannels[ch.id]) {
                 const state = videoStates[ch.id] || { paused: false, playbackRate: 1 };
@@ -588,16 +595,16 @@ onDestroy(() => {
 
         <!-- Fullscreen Button (bottom-right corner) -->
         <button
-    on:click={toggleFullscreen}
-    class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80 transition"
-    title={isFullscreen ? 'Exit Fullscreen' : 'Full Preview'}
->
-    {#if isFullscreen}
-    <img src={minimize} alt="Minimize" class="w-4 h-4"/>
-    {:else}
-        <img src={maximize} alt="Maximize" class="w-4 h-4"/>
-    {/if}
-</button>
+            on:click={toggleFullscreen}
+            class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80 transition"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Full Preview'}
+            >
+            {#if isFullscreen}
+            <img src={minimize} alt="Minimize" class="w-4 h-4"/>
+            {:else}
+            <img src={maximize} alt="Maximize" class="w-4 h-4"/>
+            {/if}
+        </button>
 
     </div>
     {/if}

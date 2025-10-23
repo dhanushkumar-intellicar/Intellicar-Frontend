@@ -1,71 +1,71 @@
 <script>
-  import RecordedSection from "./RecordedSection.svelte";
-  import LiveSection from "./LiveSection.svelte";
-  import CommandsSection from "./CommandsSection.svelte"; // ✅ new
+import RecordedSection from "./RecordedSection.svelte";
+import LiveSection from "./LiveSection.svelte";
+import CommandsSection from "./CommandsSection.svelte";
 
-  export let onVideoSelect = () => {};
-  export let onStopAllVideos = () => {};
+export let onVideoSelect = () => {};
+// export let onStopAllVideos = () => {};
 
-  let currentView = "recorded";
-  let recordedSectionRef;
-  let liveSectionRef;
-  let commandsSectionRef;
+let currentView = "recorded";
+let recordedSectionRef;
+let liveSectionRef;
+let commandsSectionRef;
 
-  function handleVideoSelect(videoInfo) {
-    recordedSectionRef?.stopAllVideos?.();
-    liveSectionRef?.stopAllVideos?.();
+function handleVideoSelect(videoInfo) {
+    recordedSectionRef ?.stopAllVideos ?.();
+    liveSectionRef ?.stopAllVideos ?.();
     onVideoSelect(videoInfo);
-  }
+}
 
-  function handleTabSwitch(newView) {
+function handleTabSwitch(newView) {
     currentView = newView;
-    recordedSectionRef?.stopAllVideos?.();
-    liveSectionRef?.stopAllVideos?.();
-    commandsSectionRef?.stopAllVideos?.();
-    onStopAllVideos();
-  }
+    recordedSectionRef ?.stopAllVideos ?.();
+    liveSectionRef ?.stopAllVideos ?.();
+    commandsSectionRef ?.stopAllVideos ?.();
+    // onStopAllVideos();
+}
 </script>
 
 <div class="max-w-md mx-auto bg-gray-50 rounded-xl shadow-md overflow-hidden h-full flex flex-col">
-  <div class="grid grid-cols-3 border-b bg-white">
-    <button
-      class="p-3 text-center cursor-pointer font-semibold transition
-      {currentView === 'recorded'
-        ? 'bg-blue-600 text-white'
-        : 'hover:bg-gray-100 text-gray-700'}"
-      on:click={() => handleTabSwitch('recorded')}
-    >
-      Recorded
-    </button>
+    <div class="grid grid-cols-3 border-b bg-white">
+        <button
+            class="p-3 text-center cursor-pointer font-semibold transition
+            {currentView === 'recorded'
+            ? 'bg-blue-600 text-white'
+            : 'hover:bg-gray-100 text-gray-700'}"
+            on:click={() => handleTabSwitch('recorded')}
+            >
+            Recorded
+        </button>
 
-    <button
-      class="p-3 text-center cursor-pointer font-semibold transition
-      {currentView === 'live'
-        ? 'bg-green-600 text-white'
-        : 'hover:bg-gray-100 text-gray-700'}"
-      on:click={() => handleTabSwitch('live')}
-    >
-      Live
-    </button>
+        <button
+            class="p-3 text-center cursor-pointer font-semibold transition
+            {currentView === 'live'
+            ? 'bg-green-600 text-white'
+            : 'hover:bg-gray-100 text-gray-700'}"
+            on:click={() => handleTabSwitch('live')}
+            >
+            Live
+        </button>
 
-    <button
-      class="p-3 text-center cursor-pointer font-semibold transition
-      {currentView === 'commands'
-        ? 'bg-[#8B4513] text-white'
-        : 'hover:bg-gray-100 text-gray-700'}"
-      on:click={() => handleTabSwitch('commands')}
-    >
-      Commands
-    </button>
-  </div>
+        <button
+            class="p-3 text-center cursor-pointer font-semibold transition
+            {currentView === 'commands'
+            ? 'bg-[#8B4513] text-white'
+            : 'hover:bg-gray-100 text-gray-700'}"
+            on:click={() => handleTabSwitch('commands')}
+            >
+            Commands
+        </button>
+    </div>
 
-  <div class="flex-1 overflow-y-auto">
-    {#if currentView === 'recorded'}
-      <RecordedSection bind:this={recordedSectionRef} onVideoSelect={handleVideoSelect} />
-    {:else if currentView === 'live'}
-      <LiveSection bind:this={liveSectionRef} onVideoSelect={handleVideoSelect} />
-    {:else}
-      <CommandsSection bind:this={commandsSectionRef} />
-    {/if}
-  </div>
+    <div class="flex-1 overflow-y-auto">
+        {#if currentView === 'recorded'}
+        <RecordedSection bind:this={recordedSectionRef} onVideoSelect={handleVideoSelect} />
+        {:else if currentView === 'live'}
+        <LiveSection bind:this={liveSectionRef} onVideoSelect={handleVideoSelect} />
+        {:else}
+        <CommandsSection bind:this={commandsSectionRef} />
+        {/if}
+    </div>
 </div>

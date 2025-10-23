@@ -9,55 +9,67 @@
   let streamType = 0;
   let loading = false;
   let disabled = false;
-  let availableFiles = [];
   let responseData = null;
 
   async function handleSubmit() {
-    if (selectedChannel === -1) {
-      snackbar.set({
-        show: true,
-        message: "Please select a channel before starting live stream.",
-        type: "error",
-      });
-      return;
-    }
-
-    loading = true;
-    disabled = true;
-    availableFiles = [];
-    responseData = null;
-
+  if (selectedChannel === -1) {
     snackbar.set({
       show: true,
-      message: "Connecting to live stream...",
-      type: "info",
+      message: "Please select a channel before starting live stream.",
+      type: "error",
     });
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const files = [
-      {
-        id: 1,
-        name: `CH${selectedChannel + 1}_LiveStream.mp4`,
-        url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        size: "Live Stream",
-        duration: "Ongoing",
-        start: "Now",
-        end: "Live",
-      },
-    ];
-
-    availableFiles = files;
-
-    snackbar.set({
-      show: true,
-      message: "Live stream ready!",
-      type: "success",
-    });
-
-    loading = false;
-    disabled = false;
+    return;
   }
+
+  loading = true;
+  disabled = true;
+  responseData = null;
+
+  snackbar.set({
+    show: true,
+    message: "Connecting to live stream...",
+    type: "info",
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  // Live stream info
+  const file = {
+    id: 1,
+    name: `CH${selectedChannel + 1}_LiveStream.mp4`,
+    url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    size: "Live Stream",
+    duration: "Ongoing",
+    start: "Now",
+    end: "Live",
+  };
+
+  // Set response data for UI
+  responseData = {
+    message: `Now streaming ${file.name}`,
+    data: {
+      file: file.name,
+      channel: selectedChannel + 1,
+      duration: file.duration,
+      size: file.size,
+      start: file.start,
+      end: file.end,
+    },
+  };
+
+  snackbar.set({
+    show: true,
+    message: responseData.message,
+    type: "success",
+  });
+
+  // Automatically tell parent to start video playback
+  onVideoSelect({ channel: selectedChannel, url: file.url, section: 'live' });
+
+  loading = false;
+  disabled = false;
+}
+
 
   export function playExternalVideo(videoInfo) {
     const videoEl = document.querySelector(`video[src="${videoInfo.url}"]`);
@@ -73,28 +85,6 @@ export function stopAllVideos() {
     document.querySelectorAll("video").forEach(v => v.pause());
   }
 
-  function handleFileSelect(file) {
-    responseData = {
-      message: `Now streaming ${file.name}`,
-      data: {
-        file: file.name,
-        channel: selectedChannel + 1,
-        duration: file.duration,
-        size: file.size,
-        start: file.start,
-        end: file.end,
-      },
-    };
-
-    snackbar.set({
-      show: true,
-      message: responseData.message,
-      type: "success",
-    });
-
-    onVideoSelect({ channel: selectedChannel, url: file.url, section: 'live' });
-
-  }
 </script>
 
 <div class="flex flex-col h-full">
@@ -166,21 +156,7 @@ export function stopAllVideos() {
         {/if}
       </button>
 
-      {#if availableFiles.length > 0}
-        <div class="mt-3 w-full bg-white border rounded-md p-3 shadow-sm">
-          <p class="text-sm font-medium text-gray-700 mb-2">Available Live Streams:</p>
-          <div class="space-y-2">
-            {#each availableFiles as file}
-              <button
-                class="block w-full text-left p-2 rounded-md border hover:bg-green-50 transition text-sm"
-                on:click={() => handleFileSelect(file)}
-              >
-                📡 {file.name} — <span class="text-gray-500">{file.size}</span>
-              </button>
-            {/each}
-          </div>
-        </div>
-      {/if}
+      
     </div>
   </div>
 
